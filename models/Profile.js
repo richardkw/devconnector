@@ -21,7 +21,7 @@ const ProfileSchema = new Schema({
   location: {
     type: String
   },
-  location: {
+  status: {
     type: String,
     required: true
   },
