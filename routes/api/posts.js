@@ -149,4 +149,80 @@ router.post(
   }
 );
 
+// @route   POST api/posts/comment/:id
+// @desc    Add comment to post
+// @access  Private
+router.post(
+  "/comment/:id",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    const { errors, isValid } = validatePostInput(req.body);
+
+    // Check validation
+    if (!isValid) {
+      return res.status(400).json(errors);
+    }
+
+    Post.findById(req.params.id)
+      .then(post => {
+        const newComment = {
+          text: req.body.text,
+          name: req.body.name,
+          avatar: req.body.avatar,
+          user: req.user.id
+        };
+
+        // Add to comments array
+        post.comments.unshift(newComment);
+        post.save().then(post => res.json(post));
+      })
+      .catch(err => res.status(404).json({ postnotfound: "No post found" }));
+  }
+);
+
+// @route   DELETE api/posts/comment/:id/:comment_id
+// @desc    Remove comment from post
+// @access  Private
+router.delete(
+  "/comment/:post_id/:comment_id",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    Post.findById(req.params.post_id)
+      .then(post => {
+        // Check to see if the comment exists
+        if (
+          post.comments.filter(
+            comment => comment._id.toString() === req.params.comment_id
+          ).length === 0
+        ) {
+          return res
+            .status(404)
+            .json({ commentnotexists: "Comment does not exist" });
+        }
+
+        // Find comment index and check permissions
+        const index = post.comments.findIndex(
+          comment =>
+            comment._id == req.params.comment_id &&
+            (comment.user.toString() == req.user.id ||
+              post.user.toString() == req.user.id)
+        );
+        //if found and all legit JUST DO IT
+        if (index > -1) {
+          post.comments.splice(index, 1);
+          post.save().then(post => res.json(post));
+        } else {
+          return res.status(401).json({
+            notauthorized: "You can't delete this comment on this post"
+          });
+        }
+      })
+      .catch(err =>
+        res.status(404).json({
+          nocomment: "Error removing the comment on this post"
+        })
+      );
+  }
+);
+
 module.exports = router;
